@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\d3d9_hook.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\d3d9_hook_1.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\dllmain.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\gameui.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\hooks.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\input.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\math.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\pattern.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\voice_wheel.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\wndproc.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\xrapi.cpp"><Filter>Source Files</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\d3d9_hook.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\src\gameui.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\src\hooks.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\src\input.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\src\math.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\src\pattern.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\src\voice_wheel.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\src\wndproc.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\src\xrapi.h"><Filter>Header Files</Filter></ClInclude>
+  </ItemGroup>
+</Project>

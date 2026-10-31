@@ -1,0 +1,1 @@
+Place MinHook.lib (x86) here. Build MinHook as Win32 Release

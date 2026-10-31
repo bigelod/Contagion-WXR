@@ -1,0 +1,20 @@
+# Contagion VR Voice Wheel - Label=command
+# Edit commands after testing in console: vocalize <EventID>
+# To find IDs: try console 'vocalize' or dump game_sounds
+# Default uses generic Source vocalize concepts - replace with real Contagion ones
+
+Help!=vocalize help
+Follow Me=vocalize followme
+Need Ammo=vocalize needammo
+Medic!=vocalize needhealth
+Thanks=vocalize thanks
+Sorry=vocalize sorry
+Zombie!=vocalize warnzombie
+Go! Go! Go!=vocalize go
+
+# Examples that might exist in Contagion:
+# Help!=vocalize playerhelp
+# Need Pills=vocalize playerspotpills
+# Taunt=vocalize taunt
+# Laugh=vocalize playerlaugh
+# Panic=vocalize panicevent
