@@ -68,3 +68,12 @@ Testing/
 .cache/
 
 Release/
+
+# Contagion-WXR
+out/
+Release/
+*.lnk
+contagion-wxr-*.log
+version_o.dll
+ContagionWXR.manifest.txt
+src/buildstamp.cpp

@@ -303,6 +303,20 @@ Two practical cautions if you switch to `0` and back:
   the last good pose across it rather than treating the silence as a dropout
   to zero.
 
+> **[device - owner, 2026-11-17] `MODE_VR = 0` is safe in mono only.**
+> It works in monocular mode (`MODE_3D = 0`), which is how the Interstellar
+> Marines port uses it. **Combined with AER (`MODE_3D = 2`) the transition
+> breaks WinlatorXR.** The other ports in the family corroborate it from the
+> avoid side: mirrors-edge-WXR renders AER and never sends `0` at all (it sends
+> `2` on shutdown), and XOPS-WXR renders AER and keeps `MODE_VR = 1` in menus,
+> dropping `MODE_3D` to mono instead.
+>
+> So the rule is: **in mono, `0` for menus is fine; in AER, keep `1` and set
+> `MODE_3D = 0` for menus, or use `2`.** Never send `0` while the last 3D mode
+> was AER without dropping the 3D mode first — and always keep `MODE_3D = 0` when
+> `MODE_VR != 1`, so a stray combination cannot leave the runtime in a state it
+> does not recover from.
+
 `2` and `3` are both "flat window in the headset". The difference is who moves
 the mouse: in `2` the runtime leaves its normal screen-mode input alone (which
 is why `opentrackWXR` uses it - it wants raw HMD data to forward to the game's

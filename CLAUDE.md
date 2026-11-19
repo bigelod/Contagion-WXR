@@ -12,11 +12,17 @@ XrApi. Not the separate `ContagionVR` title — that is a different product.
 | File | What it is |
 |---|---|
 | `Docs/general_wxr/CLAUDE.md` | **Standing instructions.** Binding. The choices not to relitigate, the non-negotiables in the code, how to work |
-| `Docs/ClaudeCode/PROJECT_OVERVIEW.md` | The goal, the target as measured, the path chosen and the paths rejected |
-| `Docs/ClaudeCode/CURRENT_STATUS.md` | Where the port actually stands, and the current blocker |
-| `Docs/ClaudeCode/BUG_FIXES.md` | Numbered defect register with status lines |
-| `Docs/ClaudeCode/PROJECT_PLAN.md` | Milestones, feature specs, risks |
+| `Docs/OpenCode/DeepSeek41Flash/README.md` | **The live notes.** Index to the current documentation set |
+| `Docs/OpenCode/DeepSeek41Flash/BINARY_RECON.md` | **Measured facts** about the shipped binaries: interfaces, exports, RTTI, the real hook targets, the real command names |
+| `Docs/OpenCode/DeepSeek41Flash/RUNTIME_CONFIRMATIONS.md` | **Read first after a game run.** What the last run proved or corrected |
+| `Docs/OpenCode/DeepSeek41Flash/NIGHT_REPORT.md` | The overnight session: device capture, sync pixel, camera, and the evidence |
+| `Docs/OpenCode/DeepSeek41Flash/CAMERA.md` | **The camera, measured.** Object, slot, `CViewSetup` layout, the proven yaw write, and the open HMD maths |
+| `Docs/OpenCode/DeepSeek41Flash/DEFECTS.md` | The live defect register |
+| `Docs/OpenCode/DeepSeek41Flash/DEPLOY.md` | Where the mod goes: the two game copies, `Release\ContagionWXR`, and the build-and-deploy script |
+| `Docs/OpenCode/DeepSeek41Flash/SIBLING_PORTS.md` | Proven technique from XOPS-WXR, mirrors-edge-WXR and Interstellar-Marines-WXR |
+| `Docs/OpenCode/DeepSeek41Flash/PLAN.md` | What to do next, in order, with the experiments that settle the unknowns |
 | `Docs/general_wxr/` (rest) | The game-agnostic porting framework: the protocol, the staged plan, tools, tips |
+| `Docs/ClaudeCode/` | **Archival.** A good audit of the Meta AI attempt, superseded by `Docs/OpenCode/DeepSeek41Flash/` |
 | `Docs/MetaAI/` | **History only.** See below |
 
 ## Project-specific rules
@@ -39,6 +45,10 @@ all apply and are not restated here. Full list in
   completion percentages, offsets and interface layouts are wrong and must not
   be cited as evidence — the code there has never compiled, so nothing in it
   has ever executed.
+- **`Docs/ClaudeCode/` is archival.** A careful audit of the Meta AI attempt,
+  accurate about the code and about the blocker, but its engine-level
+  conclusions have since been measured and partly overturned — see
+  `Docs/OpenCode/DeepSeek41Flash/AUDIT.md`.
 - **Mark provenance.** Use `[verified]` / `[code]` / `[spec]` / `[web]` /
   `[unverified]` on any non-obvious claim in the docs, as the existing
   `Docs/ClaudeCode/` files do.
@@ -50,6 +60,23 @@ all apply and are not restated here. Full list in
 - **The build stamp is mandatory.** `__DATE__ __TIME__` compiled in, logged on
   line 1, and the deploy script refuses a binary older than the newest source
   file.
+
+## Deploy targets
+
+Full detail in `Docs/OpenCode/DeepSeek41Flash/DEPLOY.md`. Short version:
+
+| Path | Role |
+|---|---|
+| `E:\Steam\steamapps\common\Contagion` | **PC test target**, native Windows, launched directly |
+| `E:\tmp\Q3Mods\Contagion` | **Quest staging target**, a full game copy staged for the headset |
+| `Release\ContagionWXR` | **mod-only build output** — gitignored; never the source of truth |
+
+Mod files go at the **game root, beside `contagion.exe`** — not in `engine/` or
+`contagion/bin/`. That is where the `version.dll` load chain finds them.
+
+Shortcuts for all three live in `Release/`. The two game copies were
+byte-identical on 2026-11-17; keep them that way, or a copy bug will read as a mod
+bug.
 
 ## Container
 

@@ -1,0 +1,31 @@
+; version.def - retained as documentation of the export set.
+;
+; NOT compiled in. See exports.cpp: link.exe with this toolset resolves
+; "name=version_o.name" as an alias to an internal symbol rather than as a
+; forwarder, so the export table is generated with /export: linker directives
+; instead.
+;
+; Keep the two lists in step. tools\check-exports.ps1 compares the built DLL
+; against the real version.dll and fails on any difference.
+;
+; The set below is the export set of C:\Windows\SysWOW64\version.dll
+; (17 names, verified 2026-11-17).
+
+EXPORTS
+    GetFileVersionInfoA
+    GetFileVersionInfoByHandle
+    GetFileVersionInfoExA
+    GetFileVersionInfoExW
+    GetFileVersionInfoSizeA
+    GetFileVersionInfoSizeExA
+    GetFileVersionInfoSizeExW
+    GetFileVersionInfoSizeW
+    GetFileVersionInfoW
+    VerFindFileA
+    VerFindFileW
+    VerInstallFileA
+    VerInstallFileW
+    VerLanguageNameA
+    VerLanguageNameW
+    VerQueryValueA
+    VerQueryValueW
