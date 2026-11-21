@@ -382,3 +382,63 @@ default; see `CAMERA.md` for the switches.
 | `CViewSetup` layout | placeholder (D01) | **measured**: origin +0x2C, angles +0x38 |
 | The camera can be driven | unproven | **observed**: yaw write rotates the picture |
 | The game runs fullscreen | assumed borderless | **fullscreen 1920×1080@60** |
+
+---
+
+## Run 7 - 2026-11-20 01:13, Quest 3 / WinlatorXR (first device run of the wrapper build)
+
+Collected: `E:\tmp\VRLogs\ContagionWXR\contagion-wxr-launcher-20261120-011333.log`.
+Game at `Z:\steam_games\Contagion`, game dir writable (the launcher log was
+written there).
+
+```
+launcher : Z:\steam_games\Contagion\ContagionWXR.exe
+mod      : version.dll present, version_o.dll present
+env      : WINEDLLOVERRIDES='version=n,b' (was '')
+started  : pid 240 (suspended)
+inject   : remote kernel32 0x7BEE0000, LoadLibraryA 0x7BEED118
+inject   : LoadLibraryA returned 0x7AFD0000
+resumed  : main thread
+exited   : code 0 (0x00000000)          [110 s later]
+```
+
+### What it proves
+
+- The launcher runs on device, finds the game, sets the Wine override and
+  starts the process suspended.
+- The remote thread ran and `LoadLibraryA` returned a module base.
+- The game then ran for 110 seconds and exited 0, so nothing it loaded took it
+  down.
+
+### What it does not prove, and the finding
+
+**There is no mod log at all.** `DllMain` calls `LogInit` before anything else,
+so a loaded mod always leaves a log line. No log means our `DllMain` did not
+run, whatever address `0x7AFD0000` belongs to.
+
+`contagion.exe` imports only `KERNEL32.dll` and `USER32.dll`; `version.dll` is
+imported by `engine\crashhandler.dll` (and `libcef`, `steamclient`, `unicows`),
+which load later. So no version.dll was preloaded at injection time, and the
+injection is the only path by which our module could have entered.
+
+Known candidates, to be separated by the next run:
+
+1. `0x7AFD0000` is Wine's builtin `version.dll`, not ours (same-base-name
+   resolution), and `DllMain` never ran. The launcher now logs the module path
+   for that handle.
+2. Our module loaded but could not create a log in either the game dir or
+   `%TEMP%`. The `logfile` line and the new fixed folder distinguish this.
+3. The log existed and was pruned while open (`DEFECTS.md` D44, fixed).
+
+### Changes made in response
+
+- Both logs now go to `D:\ContagionWXR\Logs`, created if missing, with fallback
+  to the game dir and then `%TEMP%`; `CWXR_LOGDIR` overrides.
+- The mod logs its own log-file path as line 5.
+- The launcher names the module behind the returned handle and watches the log
+  folder for three seconds, printing either `mod log appeared: ... - DllMain
+  ran` or `NO mod log ... - the DLL did not attach`.
+- Pruning moved before file creation and restricted to the mod's own names
+  (D44).
+
+The next device run's launcher log answers the question without a rebuild.

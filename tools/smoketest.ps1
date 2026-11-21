@@ -43,7 +43,13 @@ New-Item -ItemType Directory -Force -Path $hostDir | Out-Null
 $hostDll = Join-Path $hostDir 'cwxr-smoke.dll'
 Copy-Item $Dll $hostDll -Force
 
-$before = @(Get-ChildItem $env:TEMP -Filter 'contagion-wxr-*.log' -ErrorAction SilentlyContinue |
+# Keep the smoke host's log out of the real folder, but somewhere this script and
+# test-xrapi.ps1 can both read after the host is gone.
+$logDir = Join-Path $env:TEMP 'cwxr-smoke-logs'
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+$env:CWXR_LOGDIR = $logDir
+
+$before = @(Get-ChildItem $logDir -Filter 'contagion-wxr-2*.log' -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty FullName)
 
 # Short client.dll wait: this host will never load it, and the recon dump should
@@ -67,7 +73,7 @@ if ($h -eq [IntPtr]::Zero) {
 Write-Host ("loaded at 0x{0:X}" -f [int64]$h) -ForegroundColor Green
 Start-Sleep -Seconds $WaitSeconds
 
-$new = @(Get-ChildItem $env:TEMP -Filter 'contagion-wxr-*.log' -ErrorAction SilentlyContinue |
+$new = @(Get-ChildItem $logDir -Filter 'contagion-wxr-2*.log' -ErrorAction SilentlyContinue |
          Where-Object { $before -notcontains $_.FullName } |
          Sort-Object LastWriteTime -Descending)
 

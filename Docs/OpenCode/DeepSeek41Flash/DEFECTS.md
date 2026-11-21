@@ -709,3 +709,20 @@ The distinction matters twice over:
 **Rule:** never guess a calling convention from "COM" or "virtual"; check
 `STDMETHODCALLTYPE` versus plain `virtual`, and prefer a naked forwarding thunk
 when the arity is unknown.
+
+### D44 — Log pruning could delete the file it was writing — **FIXED 2026-11-20**
+
+`PruneOldLogs()` ran *after* the new log was created, and its pattern
+(`contagion-wxr-*.log`) also matched the launcher's own logs. On device storage
+the last-write timestamp has two-second granularity, so the new file can tie
+with files from the same run; if five files sorted at least as new, the new log
+— still open for writing — was deleted. Its handle stays valid, so the mod keeps
+logging into a file nobody can see.
+
+**Fix:** prune *before* creating this run's file, and narrow the pattern to
+`contagion-wxr-2*.log` so launcher logs are neither counted nor deleted.
+
+This is one of the candidate explanations for the 2026-11-20 device run, which
+produced a launcher log and no mod log (`RUNTIME_CONFIRMATIONS.md` Run 7). It is
+fixed either way; the launcher now also proves attachment by watching for the
+file.

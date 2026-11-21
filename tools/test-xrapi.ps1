@@ -23,7 +23,7 @@ $fake = Join-Path $here 'fakesender.ps1'
 $smoke = Join-Path $here 'smoketest.ps1'
 $ps = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
 
-$before = @(Get-ChildItem $env:TEMP -Filter 'contagion-wxr-*.log' -ErrorAction SilentlyContinue |
+$before = @(Get-ChildItem (Join-Path $env:TEMP 'cwxr-smoke-logs') -Filter 'contagion-wxr-2*.log' -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty FullName)
 
 $senderJob = Start-Job -ScriptBlock {
@@ -42,7 +42,7 @@ $senderOut = Receive-Job -Job $senderJob 2>&1
 Remove-Job -Job $senderJob -Force
 if ($senderOut) { Write-Host ('sender: ' + ($senderOut -join ' ')) -ForegroundColor DarkGray }
 
-$new = @(Get-ChildItem $env:TEMP -Filter 'contagion-wxr-*.log' -ErrorAction SilentlyContinue |
+$new = @(Get-ChildItem (Join-Path $env:TEMP 'cwxr-smoke-logs') -Filter 'contagion-wxr-2*.log' -ErrorAction SilentlyContinue |
          Where-Object { $before -notcontains $_.FullName } |
          Sort-Object LastWriteTime -Descending)
 if ($new.Count -eq 0) { Write-Host 'no log produced' -ForegroundColor Red; exit 3 }

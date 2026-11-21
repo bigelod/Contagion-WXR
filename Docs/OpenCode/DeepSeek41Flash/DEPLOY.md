@@ -98,12 +98,15 @@ not in `contagion\bin\`. That is where the `version.dll` load chain finds it
   contagion.exe
   version.dll          <- ours
   version_o.dll        <- real 32-bit version.dll, renamed
-  contagion-wxr.ini    <- ours
-  contagion-wxr.log    <- written at run time
+  ContagionWXR.exe     <- ours (launcher)
+  contagion-wxr-launcher.ini  <- ours (launcher settings)
   engine\              <- untouched
   contagion\           <- untouched
   vpks\                <- untouched
 ```
+
+Logs are **not** written here. Both the launcher and the mod write to
+`D:\ContagionWXR\Logs`, which they create if it does not exist; see §3 below.
 
 Owner's decision, 2026-11-17: the ini sits at the game root, not in a `VR\`
 subfolder. Keep the transfer set flat accordingly.
@@ -230,18 +233,43 @@ names, sizes and SHA-256. That is the reference for the other two checks.
 stop. A copy that reports success without a hash comparison is a copy you debug
 later.
 
-**3. On the device — the log.** The mod writes **one log per run**
-(`contagion-wxr-YYYYMMDD-HHMMSS.log`, keep the last 5) and logs, in this order:
+**3. On the device — the log.** Both logs go to **`D:\ContagionWXR\Logs`**:
+
+- the mod writes **one log per run** (`contagion-wxr-YYYYMMDD-HHMMSS.log`, keep
+  the last 5; launcher logs are not counted and never deleted by the mod);
+- the launcher writes `contagion-wxr-launcher-YYYYMMDD-HHMMSS.log` there too.
+
+The folder is created if missing, including `D:\ContagionWXR`. If `D:` is
+absent or unwritable the mod falls back beside the game, then to `%TEMP%`, and
+the `logfile` line says where it actually landed. `CWXR_LOGDIR` overrides the
+folder (the smoke tests use it to stay out of the real one).
+
+The mod's lines, in order:
 
 1. the build stamp (`__DATE__ __TIME__`);
 2. the full path of the module that loaded;
 3. **the SHA-256 of its own file**;
-4. the handshake directory it chose, and whether `Z:\tmp` was found.
+4. the process path;
+5. the log file's own path;
+6. the handshake directory it chose, and whether `Z:\tmp` was found.
 
 Line 3 is what makes remote verification possible. The owner reads four lines,
 compares the hash against the manifest printed on the PC, and knows the right
 binary is running without trusting a filename or a timestamp. It costs about
 thirty lines and removes the entire class of "did the copy actually take?".
+
+**The launcher now proves attachment.** After injecting it watches the log
+folder for three seconds and records one of two lines:
+
+```
+inject : mod log appeared: D:\ContagionWXR\Logs\contagion-wxr-....log - DllMain ran
+inject : NO mod log in D:\ContagionWXR\Logs after 3 s - the DLL did not attach
+```
+
+A non-zero `LoadLibraryA` result alone is not proof (a module with the same base
+name would also return a handle), and on 2026-11-20 the device produced exactly
+that: a successful-looking injection and no mod log. The `module at 0x... =`
+line names the module that was actually loaded.
 
 **Why one file per run, not a fixed name:** NTFS file tunnelling can reuse a
 deleted file's creation time and *append* the next run to the same file, which

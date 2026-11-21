@@ -42,10 +42,50 @@ void JoinPath(char* out, size_t cap, const char* dir, const char* name) {
     }
 }
 
+// Logs live in one fixed folder on both the PC and the headset, so a human
+// never has to guess which game directory a run used. CWXR_LOGDIR overrides it;
+// the smoke tests use that to keep a throwaway host out of the real folder.
+const char kDefaultLogDir[] = "D:\\ContagionWXR\\Logs";
+
+bool EnsureDirectory(const char* path) {
+    if (!path || !path[0]) return false;
+
+    char tmp[MAX_PATH];
+    strncpy_s(tmp, sizeof(tmp), path, _TRUNCATE);
+
+    // Create each component in turn. Skip the separator after a drive letter.
+    for (size_t i = 1; tmp[i]; ++i) {
+        if (tmp[i] != '\\' && tmp[i] != '/') continue;
+        if (tmp[i - 1] == ':') continue;
+        tmp[i] = 0;
+        CreateDirectoryA(tmp, nullptr);
+        tmp[i] = '\\';
+    }
+    if (CreateDirectoryA(tmp, nullptr)) return true;
+    return GetLastError() == ERROR_ALREADY_EXISTS;
+}
+
+bool PreferredLogDir(char* out, size_t cap) {
+    char env[MAX_PATH] = {0};
+    if (GetEnvironmentVariableA("CWXR_LOGDIR", env, sizeof(env)) > 0 && env[0]) {
+        if (EnsureDirectory(env)) {
+            strncpy_s(out, cap, env, _TRUNCATE);
+            return true;
+        }
+    }
+    if (EnsureDirectory(kDefaultLogDir)) {
+        strncpy_s(out, cap, kDefaultLogDir, _TRUNCATE);
+        return true;
+    }
+    return false;
+}
+
 // Delete all but the newest kKeepLogs files matching our prefix.
 void PruneOldLogs(const char* dir) {
+    // "contagion-wxr-2*.log" deliberately excludes the launcher's own logs,
+    // which share the prefix but are not ours to delete.
     char pattern[MAX_PATH];
-    JoinPath(pattern, sizeof(pattern), dir, "contagion-wxr-*.log");
+    JoinPath(pattern, sizeof(pattern), dir, "contagion-wxr-2*.log");
 
     struct Entry { FILETIME ft; char name[MAX_PATH]; };
     Entry found[64];
@@ -151,7 +191,10 @@ bool LogInit(HMODULE self, const char* buildStamp) {
     GetLocalTime(&st);
 
     char dir[MAX_PATH] = {0};
-    ExeDir(dir, sizeof(dir));
+    if (!PreferredLogDir(dir, sizeof(dir))) {
+        // D: not present or not writable: behave as before, beside the game.
+        ExeDir(dir, sizeof(dir));
+    }
 
     char name[MAX_PATH];
     _snprintf_s(name, sizeof(name), _TRUNCATE, "contagion-wxr-%04d%02d%02d-%02d%02d%02d.log",
@@ -159,11 +202,15 @@ bool LogInit(HMODULE self, const char* buildStamp) {
 
     if (dir[0]) {
         JoinPath(g_path, sizeof(g_path), dir, name);
+        // Prune *before* creating this run's file. Pruning afterwards could
+        // delete the file we are writing: on device storage the timestamp
+        // granularity is two seconds, so the new file can tie with the previous
+        // run's and lose the "keep the newest five" sort while still open.
+        PruneOldLogs(dir);
         // CREATE_ALWAYS: never append to a previous run's file, whatever the
         // filesystem thinks about creation times (DEFECTS.md D40).
         g_file = CreateFileA(g_path, GENERIC_WRITE, FILE_SHARE_READ, nullptr,
                              CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (g_file != INVALID_HANDLE_VALUE) PruneOldLogs(dir);
     }
 
     if (g_file == INVALID_HANDLE_VALUE) {
@@ -205,6 +252,10 @@ bool LogInit(HMODULE self, const char* buildStamp) {
 
     char exe[MAX_PATH] = {0};
     if (GetModuleFileNameA(nullptr, exe, MAX_PATH)) Log("process : %s", exe);
+
+    // Line 5: where this file is. Answers "which copy is this?" from the log
+    // alone, including when the preferred folder was not available.
+    Log("logfile : %s", g_path);
 
     return true;
 }

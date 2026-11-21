@@ -40,6 +40,11 @@ $ErrorActionPreference = 'Stop'
 $here = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 
 $game = 'E:\Steam\steamapps\common\Contagion'
+
+# The mod and the launcher write to one fixed folder so the PC and the headset
+# agree; if D: is missing the mod falls back beside the game, so look there.
+$logDir = 'D:\ContagionWXR\Logs'
+if (-not (Test-Path $logDir)) { $logDir = $game }
 $launcher = Join-Path $game 'ContagionWXR.exe'
 $fake = Join-Path $here 'fakesender.ps1'
 $ps = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
@@ -66,7 +71,7 @@ Get-Process contagion -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 400
 Remove-Item (Join-Path $game 'contagion-wxr-shot.request') -Force -ErrorAction SilentlyContinue
 
-$before = @(Get-ChildItem $game -Filter 'contagion-wxr-2*.log' -ErrorAction SilentlyContinue |
+$before = @(Get-ChildItem $logDir -Filter 'contagion-wxr-2*.log' -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty FullName)
 
 # --- fake runtime ------------------------------------------------------------
@@ -141,7 +146,7 @@ if (-not $KeepRunning) {
 if ($sender) { Stop-Process -Id $sender.Id -Force -ErrorAction SilentlyContinue }
 
 # --- report ------------------------------------------------------------------
-$new = @(Get-ChildItem $game -Filter 'contagion-wxr-2*.log' -ErrorAction SilentlyContinue |
+$new = @(Get-ChildItem $logDir -Filter 'contagion-wxr-2*.log' -ErrorAction SilentlyContinue |
          Where-Object { $before -notcontains $_.FullName } |
          Sort-Object LastWriteTime -Descending)
 if ($new.Count -eq 0) { Write-Host 'no game log produced' -ForegroundColor Red; exit 1 }

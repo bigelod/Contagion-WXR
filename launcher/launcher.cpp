@@ -40,6 +40,43 @@ static void ExeDir(char* out, size_t cap, const char* selfPath) {
     }
 }
 
+// The mod and the launcher share one log folder, so a run is one place to look
+// on the PC and on the headset. Same rule as src/log.cpp; CWXR_LOGDIR overrides
+// it and is what the smoke tests use to stay out of the real folder.
+static const char kDefaultLogDir[] = "D:\\ContagionWXR\\Logs";
+
+static bool EnsureDirectory(const char* path) {
+    if (!path || !path[0]) return false;
+
+    char tmp[MAX_PATH];
+    strncpy_s(tmp, sizeof(tmp), path, _TRUNCATE);
+
+    for (size_t i = 1; tmp[i]; ++i) {
+        if (tmp[i] != '\\' && tmp[i] != '/') continue;
+        if (tmp[i - 1] == ':') continue;
+        tmp[i] = 0;
+        CreateDirectoryA(tmp, nullptr);
+        tmp[i] = '\\';
+    }
+    if (CreateDirectoryA(tmp, nullptr)) return true;
+    return GetLastError() == ERROR_ALREADY_EXISTS;
+}
+
+static bool PreferredLogDir(char* out, size_t cap) {
+    char env[MAX_PATH] = {0};
+    if (GetEnvironmentVariableA("CWXR_LOGDIR", env, sizeof(env)) > 0 && env[0]) {
+        if (EnsureDirectory(env)) {
+            strncpy_s(out, cap, env, _TRUNCATE);
+            return true;
+        }
+    }
+    if (EnsureDirectory(kDefaultLogDir)) {
+        strncpy_s(out, cap, kDefaultLogDir, _TRUNCATE);
+        return true;
+    }
+    return false;
+}
+
 static void LogOpen(const char* dir) {
     SYSTEMTIME st;
     GetLocalTime(&st);
@@ -204,7 +241,69 @@ static bool InjectDll(HANDLE proc, const char* dllPath) {
         return false;
     }
     Log("inject      : LoadLibraryA returned 0x%08X", code);
+    if (code) {
+        // Which module is that address? "It returned a handle" is not proof it
+        // is ours: a builtin with the same base name would return a handle too.
+        char path[MAX_PATH] = {0};
+        if (GetModuleFileNameExA(proc, (HMODULE)(uintptr_t)code, path, MAX_PATH)) {
+            Log("inject      : module at 0x%08X = %s", code, path);
+        } else {
+            Log("inject      : module at 0x%08X, path unavailable (%lu)", code, GetLastError());
+        }
+    }
     return code != 0;
+}
+
+// ---------------------------------------------------------------------------
+// Did the mod actually attach?
+//
+// "LoadLibraryA returned non-zero" only says a module exists at that address.
+// On 2026-11-20 the device run logged a successful injection and produced no
+// mod log at all, and the launcher could not tell those apart. The mod writes
+// contagion-wxr-<date>.log beside the game before it does anything else, so the
+// appearance of that file is the proof that DllMain ran.
+// ---------------------------------------------------------------------------
+struct ModLogState {
+    FILETIME newest;
+    bool     any;
+};
+
+void SnapshotModLogs(const char* dir, ModLogState* s) {
+    s->any = false;
+    memset(&s->newest, 0, sizeof(s->newest));
+
+    // The mod's own names start with a year; launcher logs do not match.
+    char pattern[MAX_PATH];
+    _snprintf_s(pattern, sizeof(pattern), _TRUNCATE, "%s\\contagion-wxr-2*.log", dir);
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA(pattern, &fd);
+    if (h == INVALID_HANDLE_VALUE) return;
+    do {
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        if (!s->any || CompareFileTime(&fd.ftLastWriteTime, &s->newest) > 0) {
+            s->newest = fd.ftLastWriteTime;
+            s->any = true;
+        }
+    } while (FindNextFileA(h, &fd));
+    FindClose(h);
+}
+
+bool NewModLogSince(const char* dir, const ModLogState& before, char* nameOut, size_t cap) {
+    char pattern[MAX_PATH];
+    _snprintf_s(pattern, sizeof(pattern), _TRUNCATE, "%s\\contagion-wxr-2*.log", dir);
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA(pattern, &fd);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    bool found = false;
+    do {
+        if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+        if (before.any && CompareFileTime(&fd.ftLastWriteTime, &before.newest) <= 0) continue;
+        strncpy_s(nameOut, cap, fd.cFileName, _TRUNCATE);
+        found = true;
+        break;
+    } while (FindNextFileA(h, &fd));
+    FindClose(h);
+    return found;
 }
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
@@ -213,11 +312,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     char dir[MAX_PATH] = {0};
     ExeDir(dir, sizeof(dir), self);
-    LogOpen(dir);
+
+    char logDir[MAX_PATH] = {0};
+    if (!PreferredLogDir(logDir, sizeof(logDir))) {
+        strncpy_s(logDir, sizeof(logDir), dir, _TRUNCATE);
+    }
+    LogOpen(logDir);
 
     Log("%s", kStamp);
     Log("launcher    : %s", self);
     Log("game dir    : %s", dir);
+    Log("log dir     : %s", logDir);
 
     char ini[MAX_PATH];
     _snprintf_s(ini, sizeof(ini), _TRUNCATE, "%s\\contagion-wxr-launcher.ini", dir);
@@ -324,6 +429,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     Log("starting    : %s", cmdline);
 
+    ModLogState modLogBefore, modLogBeforeGame;
+    SnapshotModLogs(logDir, &modLogBefore);
+    modLogBeforeGame = modLogBefore;
+    if (_stricmp(logDir, dir) != 0) SnapshotModLogs(dir, &modLogBeforeGame);
+
     DWORD flags = inject ? CREATE_SUSPENDED : 0;
     BOOL ok = CreateProcessA(exePath, cmdline, nullptr, nullptr, FALSE, flags, nullptr, dir, &si, &pi);
     if (!ok && inject) {
@@ -342,13 +452,37 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         (flags & CREATE_SUSPENDED) ? " (suspended)" : "");
 
     if (flags & CREATE_SUSPENDED) {
-        if (InjectDll(pi.hProcess, dll)) {
+        const bool injected = InjectDll(pi.hProcess, dll);
+        if (injected) {
             Log("inject      : ok - the mod is in before the entry point");
         } else {
             Log("inject      : failed - the version.dll proxy is the fallback");
         }
         ResumeThread(pi.hThread);
         Log("resumed     : main thread");
+
+        if (injected) {
+            char name[MAX_PATH] = {0};
+            char where[MAX_PATH] = {0};
+            bool appeared = false;
+            for (int i = 0; i < 30 && !appeared; ++i) {
+                if (NewModLogSince(logDir, modLogBefore, name, sizeof(name))) {
+                    strncpy_s(where, sizeof(where), logDir, _TRUNCATE);
+                    appeared = true;
+                } else if (_stricmp(logDir, dir) != 0 &&
+                           NewModLogSince(dir, modLogBeforeGame, name, sizeof(name))) {
+                    strncpy_s(where, sizeof(where), dir, _TRUNCATE);
+                    appeared = true;
+                }
+                if (!appeared) Sleep(100);
+            }
+            if (appeared) {
+                Log("inject      : mod log appeared: %s\\%s - DllMain ran", where, name);
+            } else {
+                Log("inject      : NO mod log in %s after 3 s - the DLL did not attach",
+                    logDir);
+            }
+        }
     }
 
     CloseHandle(pi.hThread);
